@@ -1,5 +1,6 @@
 module Parser where
     import Text.Parsec
+    import Text.Parsec.Token
     import Data.Char
 
     letterUppercase :: Monad m => ParsecT [Char] u m Char
@@ -67,3 +68,61 @@ module Parser where
                  ((mod (ord c) 0x10000) /= 0xFFFE) && ((mod (ord c) 0x10000) /= 0xFFFF))
               <?> "graphic character"
                                       
+    tokenParser :: Monad m => GenTokenParser [Char] u m
+    tokenParser = makeTokenParser $ LanguageDef{
+                    commentStart    = "",
+                    commentEnd      = "",
+                    commentLine     = "--",
+                    nestedComments  = False,
+                    identStart      = letterUppercase <|>
+                                      letterLowercase <|>
+                                      letterTitlecase <|>
+                                      letterModifier <|>
+                                      letterOther <|>
+                                      numberLetter,
+                    identLetter     = letterUppercase <|>
+                                      letterLowercase <|>
+                                      letterTitlecase <|>
+                                      letterModifier <|>
+                                      letterOther <|>
+                                      numberLetter <|>
+                                      markNonSpacing <|>
+                                      markSpacingCombining <|>
+                                      numberDecimal <|>
+                                      punctuationConnector,
+                    opStart         = oneOf "&'()*+,-./:;<=>|",
+                    opLetter        = oneOf ">.*=<",
+                    reservedNames   = ["abort", "abs", "abstract", "accept",
+                                       "access", "aliased", "all", "and", 
+                                       "array", "at", "begin", "body", "case",
+                                       "constant", "declare", "delay", "delta",
+                                       "digits", "do", "else", "elsif", "end",
+                                       "entry", "exception", "exit", "for",
+                                       "function", "generic", "goto", "if", "in",
+                                       "interface", "is", "limited", "loop",
+                                       "mod", "new", "not", "null", "of", "or",
+                                       "others", "out", "overriding", "package",
+                                       "pragma", "private", "procedure", 
+                                       "protected", "raise", "range", "record",
+                                       "rem", "renames", "requeue", "return",
+                                       "reverse", "select", "separate", "some",
+                                       "subtype", "synchronized", "tagged",
+                                       "task", "terminate", "then", "type", 
+                                       "until", "use", "when", "while", "with",
+                                       "xor"],
+                    reservedOpNames = ["&", "'", "(", ")", "*", "+", ",", "-",
+                                       ".", "/", ":", ";", "<", "=", ">", "|",
+                                       "=>", "..", "**", ":=", "/=", ">=", "<=",
+                                       "<<", ">>", "<>"],
+                    caseSensitive   = False
+                  }
+
+    identifierP :: Monad m => ParsecT [Char] u m String
+    identifierP = do str <- Text.Parsec.Token.identifier tokenParser
+                     return $ map toLower str
+
+    reservedWord :: Monad m => String ->  ParsecT [Char] u m ()
+    reservedWord = reserved tokenParser
+
+    op :: Monad m => String ->  ParsecT [Char] u m ()
+    op = reservedOp tokenParser
