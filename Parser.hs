@@ -117,9 +117,9 @@ module Parser where
                     caseSensitive   = False
                   }
 
-    identifierP :: Monad m => ParsecT [Char] u m String
-    identifierP = do str <- identifier tokenParser
-                     return $ map toLower str
+    identifier :: Monad m => ParsecT [Char] u m String
+    identifier = do str <- Text.Parsec.Token.identifier tokenParser
+                    return $ map toLower str
 
     reservedWord :: Monad m => String ->  ParsecT [Char] u m ()
     reservedWord = reserved tokenParser
@@ -134,3 +134,9 @@ module Parser where
                                          str <- manyTill graphicCharacter (char '"')
                                          return (c:str)
                        return $ foldl (++) str1 strs
+
+    characterLiteral :: Monad m => ParsecT [Char] u m Char
+    characterLiteral = do char '\''
+                          c <- graphicCharacter
+                          char '\''
+                          return c
