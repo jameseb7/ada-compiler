@@ -1,4 +1,27 @@
-module Parser where
+module Parser.LexicalElements (letterUppercase,
+                               letterLowercase,
+                               letterTitlecase,
+                               letterModifier,
+                               letterOther,
+                               markNonSpacing,
+                               markSpacingCombining,
+                               numberDecimal,
+                               numberLetter,
+                               punctuationConnector,
+                               otherFormat,
+                               separatorSpace,
+                               separatorLine,
+                               separatorParagraph,
+                               formatEffector,
+                               otherControl,
+                               otherPrivateUse,
+                               otherSurrogate,
+                               graphicCharacter,
+                               identifier,
+                               reservedWord,
+                               op,
+                               stringLiteral,
+                               characterLiteral) where
     import Text.Parsec
     import Text.Parsec.Token
     import Data.Char
