@@ -21,7 +21,8 @@ module Parser.LexicalElements (letterUppercase,
                                reservedWord,
                                op,
                                Parser.LexicalElements.stringLiteral,
-                               characterLiteral) where
+                               characterLiteral,
+                               numericLiteral) where
     import Text.Parsec
     import Text.Parsec.Token
     import Data.Char
@@ -163,3 +164,75 @@ module Parser.LexicalElements (letterUppercase,
                           c <- graphicCharacter
                           char '\''
                           return c
+
+    digitP :: Monad m => ParsecT [Char] u m Integer
+    digitP = do d <- oneOf "0123456789"
+                return $ toInteger (digitToInt d)
+
+    extendedDigit :: Monad m => ParsecT [Char] u m Integer
+    extendedDigit = do d <- oneOf "0123456789abcdefABCDEF"
+                       return $ toInteger (digitToInt d)
+
+    numeral :: Monad m => ParsecT [Char] u m Integer
+    numeral = do ds <- sepBy (many1 digitP) (char '_')
+                 ds' <- return $ foldl (++) [] ds
+                 ds'' <- return $ zipWith (\i -> \d -> (10^i)*d) [0..] (reverse ds')
+                 return $ foldl (+) 0 ds''
+
+    basedNumeral :: Monad m => Integer -> ParsecT [Char] u m Integer
+    basedNumeral b = do ds <- sepBy (many1 extendedDigit) (char '_')
+                        ds' <- return $ foldl (++) [] ds
+                        case (all (\d -> d < b) ds') of
+                          True -> do ds'' <- return $ zipWith (\i -> \d -> (b^i)*d) [0..]  (reverse ds')
+                                     return $ foldl (+) 0 ds''
+                          False -> fail "digits in a based literal must be less than the base"
+
+    numeralFrac :: (Monad m, RealFrac a) => ParsecT [Char] u m a
+    numeralFrac = do ds <- sepBy (many1 digitP) (char '_')
+                     ds' <- return $ foldl (++) [] ds
+                     ds'' <- return $ zipWith (\i -> \d -> (10.0^^(negate i))*(fromInteger d)) [1..] ds'
+                     return $ foldl (+) 0 ds''
+
+    basedNumeralFrac :: (Monad m, RealFrac a) => Integer -> ParsecT [Char] u m a
+    basedNumeralFrac b = do ds <- sepBy (many1 extendedDigit) (char '_')
+                            ds' <- return $ foldl (++) [] ds
+                            case (all (\d -> d < b) ds') of
+                              True -> do ds'' <- return $ zipWith (\i -> \d -> ((fromInteger b)^^(negate i))*(fromInteger d)) [1..] ds'
+                                         return $ foldl (+) 0 ds''
+                              False -> fail "digits in a based literal must be less than the base"
+
+    exponentParser :: Monad m => ParsecT [Char] u m Integer
+    exponentParser = do oneOf "eE"
+                        s <- (char '-') <|> (option '+' (char '+'))
+                        n <- numeral
+                        case s of
+                          '+' -> return n
+                          '-' -> return $ negate n
+               
+    numericLiteral :: (Monad m, Integral a, RealFloat b) =>
+                      ParsecT [Char] u m (Either a b)
+    numericLiteral = do n1 <- numeral
+                        bp <- optionMaybe $ do char '#'
+                                               basedNumeral n1
+                        fp <- case bp of
+                                Nothing -> optionMaybe $ do char '.'
+                                                            numeralFrac
+                                Just _ -> do r <- optionMaybe $ do char '.'
+                                                                   basedNumeralFrac n1
+                                             char '#'
+                                             return r
+                        ep <- option 0 exponentParser
+                        case fp of
+                          Nothing -> return $ case bp of
+                                                Nothing -> Left ((fromInteger n1) * 10^ep)
+                                                Just n' -> Left ((fromInteger n') * (fromInteger n1)^ep)
+                          Just fp' -> 
+                              return $ case bp of
+                                         Nothing -> Right $ makeFloat n1 fp' ep 10
+                                         Just n' -> Right $ makeFloat n' fp' ep n1
+
+    makeFloat :: (RealFloat a) => Integer -> a -> Integer -> Integer -> a
+    makeFloat m1 f2 e b = let f1 = fromInteger m1 
+                              b' = fromInteger b
+                              e' = fromInteger e
+                          in (f1 + f2) * b'**e'
