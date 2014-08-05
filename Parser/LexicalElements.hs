@@ -17,10 +17,10 @@ module Parser.LexicalElements (letterUppercase,
                                otherPrivateUse,
                                otherSurrogate,
                                graphicCharacter,
-                               identifier,
+                               Parser.LexicalElements.identifier,
                                reservedWord,
                                op,
-                               stringLiteral,
+                               Parser.LexicalElements.stringLiteral,
                                characterLiteral) where
     import Text.Parsec
     import Text.Parsec.Token
